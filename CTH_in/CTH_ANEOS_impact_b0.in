@@ -1,0 +1,353 @@
+
+***********************************************************************
+*eor* cthin
+***********************************************************************
+*
+HOTCI_test 
+*
+control 
+  mmp
+  selfgravity samp = 1 sub = 3
+  tstop = 2.0e3
+  ntbad = 100000000
+  rdumpf = 7200
+endc
+
+spy
+ PlotTime(0.0, 1e2);
+ SaveTime(0.0, 1e2);
+ Save("POSITION","VOLM","VOLM+1","VOLM+2","M","DENS","P","T","PM+1","PM+2","TM+1","TM+2","VX","VY","VZ","MX1","MX2","ENT1","ENT2","KPA1","KPA2","ZBAR1","ZBAR2");
+
+ ImageFormat(800,600);
+
+ Units("si");
+
+ define main()
+ {
+   pprintf(" PLOT: Cycle=%d, Time=%e\n",CYCLE,TIME);
+   
+   Image("Density_1D_equi", WHITE, BLACK);
+    Fix1D(0, 0, 0, 1e7, 0, 0);
+    VLimits(1e1, 1.5e4);
+    Label(sprintf("Density along equator at %.2f hr", TIME/3600.0));
+    Plot1D("DENS", ON, OFF, "dens_equi");
+   EndImage;
+
+   Image("Pressure_1D_equi", WHITE, BLACK);
+    Fix1D(0, 0, 0, 1e7, 0, 0);
+    VLimits(1e7, 1e12, LOG_MAP);
+    Label(sprintf("P along equator at %.2f hr", TIME/3600.0));
+    Plot1D("P", ON, OFF, "P_equi");
+   EndImage;
+
+   Image("Temp_1D_equi", WHITE, BLACK);
+    Fix1D(0, 0, 0, 1e7, 0, 0);
+    VLimits(1e2, 1e5, LOG_MAP);
+    Label(sprintf("T along equator at %.2f hr", TIME/3600.0));
+    Plot1D("T", ON, OFF, "T_equi");
+   EndImage;
+
+   Image("Entropy1_1D_equi", WHITE, BLACK);
+    Fix1D(0, 0, 0, 1e7, 0, 0);
+    VLimits(1.e3, 1.e4);
+    Label(sprintf("S1 along equiator at %.2f hr", TIME/3600.0));
+    Plot1D("ENT1", ON, OFF, "S1_equi");
+   EndImage;
+
+   Image("Entropy2_1D_equi", WHITE, BLACK);
+    Fix1D(0, 0, 0, 1e7, 0, 0);
+    VLimits(1.e3,1.e4);
+    Label(sprintf("S2 along equiator at %.2f hr", TIME/3600.0));
+    Plot1D("ENT2", ON, OFF, "S2_equi");
+   EndImage;
+
+   Image("ent1_xy-plane",WHITE,BLACK);
+    Window(0,0,0.75,1);
+    FixZ(0);
+
+    ParulaMap;
+    ColorMapRange(1.e3,1.e4);
+    ColorMapClipping(ON,ON);
+    Label(sprintf("Forsterite Entropy at %.2f hr",TIME/3600.0));
+    Plot2D("ENT1");
+    DrawColorMap("S1",0.75,0.4,0.9,0.9);
+   EndImage;
+
+   Image("ent2_xy-plane",WHITE,BLACK);
+    Window(0,0,0.75,1);
+    FixZ(0);
+
+    ParulaMap;
+    ColorMapRange(1.e3,1.e4);
+    ColorMapClipping(ON,ON);
+    Label(sprintf("Iron Entropy at %.2f hr",TIME/3600.0));
+    Plot2D("ENT2");
+    DrawColorMap("S2",0.75,0.4,0.9,0.9);
+   EndImage;
+
+   Image("Density_xy-plane",WHITE,BLACK);
+    Label(sprintf("Density as %0.2e secs.", TIME));
+
+    FixZ(0);
+    XLimits(-1e8, 1e8);
+    YLimits(-1e8, 1e8);
+
+    ParulaMap;
+    ColorMapRange(1e1, 1.5e4);
+    ColorMapClipping(ON, OFF);
+    Plot2D("DENS");
+    DrawColorMap("Density (kg/m^3)",0.85,0.45,1,0.95);
+    DrawBlockEdges;
+   EndImage;
+
+   Image("Density_xz-plane",WHITE,BLACK);
+    Label(sprintf("Density as %0.2e secs.", TIME));
+
+    FixY(0);
+    XLimits(-1e8, 1e8);
+    ZLimits(-1e8, 1e8);
+
+    ParulaMap;
+    ColorMapRange(1e1, 1.5e4);
+    ColorMapClipping(ON, OFF);
+    Plot2D("DENS");
+    DrawColorMap("Density (kg/m^3)",0.85,0.45,1,0.95);
+    DrawBlockEdges;
+   EndImage;
+
+   Image("Pressure_xy-plane",WHITE,BLACK);
+    Label(sprintf("Pressure as %0.2e secs.", TIME));
+
+    FixZ(0);
+    XLimits(-1e8, 1e8);
+    YLimits(-1e8, 1e8);
+
+    ParulaMap;
+    ColorMapRange(1e7, 1e12, LOG_MAP);
+    ColorMapClipping(ON, OFF);
+    Plot2D("P");
+    DrawColorMap("Pressure (Pa)",0.85,0.45,1,0.95);
+    DrawBlockEdges;
+   EndImage;
+
+   Image("Pressure_xz-plane",WHITE,BLACK);
+    Label(sprintf("Pressure as %0.2e secs.", TIME));
+
+    FixY(0);
+    XLimits(-1e8, 1e8);
+    ZLimits(-1e8, 1e8);
+
+    ParulaMap;
+    ColorMapRange(1e7, 1e12, LOG_MAP);
+    ColorMapClipping(ON, OFF);
+    Plot2D("P");
+    DrawColorMap("Pressure (Pa)",0.85,0.45,1,0.95);
+    DrawBlockEdges;
+   EndImage;
+
+   Image("mat1mix_xy-plane",WHITE,BLACK);
+    Window(0,0,0.75,1);
+    FixZ(0);
+    ParulaMap;
+    ColorMapRange(90,210);
+    ColorMapClipping(ON,ON);
+    Label(sprintf("Mix mantles at %.2f hr",TIME/3600.0));
+    Plot2D("MX1");
+    DrawColorMap("Mix",0.75,0.4,0.9,0.9);
+   EndImage;
+
+   Image("mat2mix_xy-plane",WHITE,BLACK);
+    Window(0,0,0.75,1);
+    FixZ(0);
+    ParulaMap;
+    ColorMapRange(290,410);
+    ColorMapClipping(ON,ON);
+    Label(sprintf("Mix cores at %.2f hr",TIME/3600.0));
+    Plot2D("MX2");
+    DrawColorMap("Mix",0.75,0.4,0.9,0.9);
+   EndImage;
+
+
+%   Image("Pressure_surf",WHITE,BLACK);
+%    Label(sprintf("Pressure at %0.2e secs.",TIME));
+
+%    XLimits(-1e8, 0);
+%    YLimits(-1e8, 0);
+%    ZLimits(-1e8, 0);
+%    RotateX(-45);
+%    RotateZ(225);
+%
+%    ParulaMap;
+%    ColorMapRange(1e7,1e12, LOG_MAP);
+%    Paint3DMat(1,"P", 0.2);
+%    Paint3DMat(2,"P", 0.2);
+%    DrawColorMap("Pressure", 0.85, 0.45, 1, 0.95);
+%   EndImage;
+}
+
+ SaveHis("GLOBAL, POSITION, VX, VY, VZ, MX1, MX2");
+ SaveTracer(ALL);
+ HisTime(0, 1e2);
+
+endspy
+
+* AMR calculation
+amr
+ 3dr
+ debug
+ nx = 4
+ ny = 4
+ nz = 4
+ bx = 1
+ by = 1
+ bz = 1
+ gmin =  -1e10, -1e10, -1e10
+ gmax =   1e10,  1e10,  1e10
+ maxl = 7
+ maxb = 8000
+
+* Print AMR info every 10 cycles
+ info = 10
+
+* refine any significant density
+ indicator
+   val dens
+   refabove 0.5
+   unrbelow 0.5
+   maxlevel = 4
+ endi
+
+* refine interfaces
+ indicator
+   val vfmax
+   refabove 0
+   refbelow 0.999999
+   unrabove 0.999999
+   maxl = 7
+ endi
+
+* unrefine if you can
+ indicator
+   val void
+   unrabove -1
+ endi
+
+enda 
+
+
+convct
+   convection = 1
+   interface = smyra
+endc
+*
+
+discard
+    mat = 1
+        pres = 1e8
+	dens = 5e-1
+    print
+enddiscard
+
+
+********************************************************************* 
+xcell
+  mat1 = 1
+   pvar = MX1
+  mat2 = 1
+   pvar = MX2
+endx
+
+edit
+  exact
+  shortt
+    tim = 0.,  dt = 1e20
+  ends
+
+  longt
+    tim = 0.,  dt = 1e20
+  endl 
+
+  histt
+    time = 0.0
+    dtfrequency = 1e2
+    htracer all
+  endh
+
+*  restt
+*    tim = 0.
+*    dtf = 2e3
+*  endr
+*  plott 
+*    tim = 0.,  dt = 1.0
+*  endp
+ende
+
+*  spall parameters 
+* fracts 
+*   stress
+*   pfrac1  -3.0e9
+*   pfrac2  -3.0e9
+*   pfmix   -1e8
+*   pfvoid  -3.0e9
+* endf 
+*
+boundary
+   bhy
+       bxb = 1 , bxt = 1
+       byb = 1 , byt = 1
+       bzb = 1 , bzt = 1
+   endh 
+endb
+
+*mindt 
+*   time = 0.  dt = 1.e-12
+*endn
+*
+**********************************************************************
+*
+*  equation of state inputs
+*
+eos
+* dunite mantle
+    MAT1 ANEOS DUNITE SSAVE=1 PSAVE=1 OSAVE=1 ISAVE=1
+*   Mat1 SESAME User eos=003
+*      feos='/home/sts/eos-tables/dunite_eos3/bdun6'
+* Iron core 
+    MAT2 ANEOS IRON SSAVE=1 PSAVE=1 OSAVE=1 ISAVE=1
+*   Mat2 Sesame Iron eos=2150
+*   Mat2 SESAME User eos=001
+*      feos='/home/sts/eos-tables/iron_aneos/biron'
+endeos
+
+* Old eos input
+* eos ses=1e6
+* Mantle
+*   mat1 sesame user eos=003
+*     feos='/home/sts/eos-tables/dunite_eos3/bdun6'
+
+* Iron
+*   mat2 sesame user eos=001
+*     feos='/home/sts/eos-tables/iron_aneos/biron'
+* endeos
+
+*epdata
+
+* matep 1
+* steinberg 2024-T4_ALUMINUM
+* poisson 0.3
+* matep 2
+* steinberg 2024-T4_ALUMINUM
+* poisson 0.3
+*endepdata
+
+****************************************************************
+* material insertion inputs
+*
+diatom
+enddiatom
+*************************************************************
+
+*  TRACER RECORDS
+*
+tracer
+endt
