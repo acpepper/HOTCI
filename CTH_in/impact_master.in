@@ -15,8 +15,8 @@ cth11 impact_master
 * (gravity calc, stop time, etc.)
 *
 control 
-  mmp0 * recommended 
-  tstop = 1.728e5 * 2 days
+  mmp2 * recommended 
+  tstop = 1.08e4
   pvoid = 10.0
   nscycle = 999999999 * no limit on number of cycles
   ntbad =  999999999 * allow a lot of EOS thermo calc errors
@@ -41,7 +41,7 @@ amr
  bz = 1
  gmin =  -1.6e11, -1.6e11, -1.6e11
  gmax =   1.6e11,  1.6e11,  1.6e11
- maxl = 11
+ maxl = 12
  maxb = 8000
  * Print AMR info every 10 cycles
  info = 10
@@ -59,19 +59,28 @@ amr
  indicator
    val dens
    refabove 0.00001
+   maxl 11
    toff 1.8e3
  endi
  * refine any significant velocity
  indicator
    val vmag
    refabove 1.0e5
+   maxl 11
    toff 1.8e3
+ endi
+ * refine core density
+ indicator
+   val dens
+   refabove 10.0
  endi
  * refine any significant density
  indicator
    val dens
    refabove 2.0
+   maxl 11
  endi
+ * unrefine insignificant density
  indicator
    val dens
    unrbelow 2.0
@@ -141,7 +150,7 @@ edit
     tim = 0., dtfrequency = 100000.0
   endr
   histt
-    tim = 0.,   dt=100.
+    tim = 0.,   dt=50.
     htracer all
   endhist
 ende 
@@ -200,8 +209,8 @@ endx
 * Spymaster script (see Spymaster User's Guide):
 *
 spy
- PlotTime(0.0, 3e2);
- SaveTime(0.0, 3e2);
+ PlotTime(0.0, 5e1);
+ SaveTime(0.0, 5e1);
  Save("POSITION","VOLM","VOLM+1","VOLM+2","M","DENS","DENSM+1","DENSM+2","P","PM+1","PM+2","T","TM+1","TM+2","VX","VY","VZ","SGX","SGY","SGZ","SGU","IE","LX","LY","LZ","CVX","CVY","CVZ","X","Y","Z","CS","M1ID","M2ID");
 
  ListVariables();
@@ -253,12 +262,14 @@ spy
    % export_user_variable(COMZ);
 
    % Prepare to save binary data
-   XLimits(-2e8, 2e8);
-   YLimits(-2e8, 2e8);
-   ZLimits(-2e8, 2e8); 
+   % These set the boundary for the binary data. With no parameters the default
+   % values are used (the default is the maximum size)
+   XLimits();
+   YLimits();
+   ZLimits(); 
 
    DataOutFormat(98);
-   DataOut("binDat","VX","VY","VZ","VOLM+1","VOLM+2","M+1","M+2","DENS","P","PM+1","PM+2","T","TM+1","TM+2","SGX","SGY","SGZ","SGU","IE","KE","EM+1","EM+2","LX","LY","LZ","CVX","CVY","CVZ","CS","M1ID","M2ID");
+   DataOut("binDat","VX","VY","VZ","VOLM+1","VOLM+2","M+1","M+2","DENS","DENSM+1","DENSM+2","P","PM+1","PM+2","T","TM+1","TM+2","SGX","SGY","SGZ","SGU","IE","KE","EM+1","EM+2","LX","LY","LZ","CVX","CVY","CVZ","CS","M1ID","M2ID");
    
    % 1D PLOTS
    % ========

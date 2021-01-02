@@ -1,0 +1,37 @@
+/|\\|//|\\\|///|\\\\|////|\\\\\|/////|\\\\|////|\\\|///|\\|//|\
+\|//|\\|///|\\\|////|\\\\|/////|\\\\\|////|\\\\|///|\\\|//|\\|/
+TO COMPILE:
+===========
+someone@impact:/...$ python setup.py build
+
+
+/|\\|//|\\\|///|\\\\|////|\\\\\|/////|\\\\|////|\\\|///|\\|//|\
+\|//|\\|///|\\\|////|\\\\|/////|\\\\\|////|\\\\|///|\\\|//|\\|/
+PROGRESS:
+=========
+- 'rect' example works
+- EOS class module works
+
+
+TODO:
+=====
+- write a function for the EOS module that finds the Temperature
+
+
+DONE:
+=====
+- embed EOS class using cython
+- (since you'll need to do this for the EOS class)
+--- found an example using 'Rectangle's, let's see if I can get it to work ...
+----- done
+--- let's copy and paste some stuff!
+- It looks like it works! (i.e. the module imports and the functions are
+  recognized). Now to test it ...
+- DONE
+
+- figure out what exactly system() does (so I know if it's really working)
+--- just runs (some) shell commands
+
+- run get_rho in C++ and make sure you can get it working that way
+- DONE
+

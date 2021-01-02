@@ -1,10 +1,11 @@
-# Copyright Andrew Pepper, 2018
-#
+'''
+Copyright Andrew Pepper, 2018
+'''
 import sys
 sys.path.append("/home/acpepper/HOTCI_stuff/HERCULES/HOTCI")
 
-import eos
-from HERCULES_structures import *
+import lib.eos as eos
+import lib.HERCULES_structures as hstr
 from scipy import interpolate
 from scipy.optimize import fsolve
 import numpy as np
@@ -21,35 +22,36 @@ if DEBUG:
     import matplotlib.pyplot as plt
 
 CTH_IN_DIR = "CTH_in/"
-CTH_BASE_FNAME = "impact_master.in"
-CTH_IN_FNAME = "M1.05_m0.05_L2.7"
+CTH_BASE_FNAME = "isolatedBody_conv2_master.in"
+CTH_IN_FNAME = "M1.05_L1.35_maxAMR8_Gcycle1_conv2.in"
 
 HERCULES_OUT_DIR = "../Output/"
-HERCULES_OUT_FNAMES = ['M1.05L2.69_hiIronS_L2.66714_N200_Nm800_k12_f021_p10000_l1_0_1.5_final', 'M0.05L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final']
+HERCULES_OUT_FNAMES = ['M1.05L1.35_L1.33357_N200_Nm800_k12_f021_p10000_l1_0_1.5_final']
 # ['M1.05L2.69_hiIronS_L2.66714_N200_Nm800_k12_f021_p10000_l1_0_1.5_final', 'M0.05L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final']
 # ["M0.9L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final", "M0.13L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final"]
 # ["M0.75L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final", "M0.3L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final"]
 # ["M0.57L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final", "M0.47L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final"]
 
-# [body1 mantle, body1 core, body2 mantle, body2 core, ...]
-MATERIAL_FNAMES = [['../EOS_files/HERCULES_EOS_S3.03_Forsterite-ANEOS-SLVTv1.0G1.txt', '../EOS_files/HERCULES_EOS_S1.81_Fe85Si15-ANEOS-SLVTv0.2G1.txt'],
-                   ['../EOS_files/HERCULES_EOS_S3.03_Forsterite-ANEOS-SLVTv1.0G1.txt', '../EOS_files/HERCULES_EOS_S1.8_Fe85Si15-ANEOS-SLVTv0.2G1.txt']]
+# ['M1.05L2.69_hiIronS_L2.66714_N200_Nm800_k12_f021_p10000_l1_0_1.5_final']
 
+# [body1 mantle, body1 core, body2 mantle, body2 core, ...]
+MATERIAL_FNAMES = [['../EOS_files/HERCULES_EOS_S3.03_Forsterite-ANEOS-SLVTv1.0G1.txt', '../EOS_files/HERCULES_EOS_S1.81_Fe85Si15-ANEOS-SLVTv0.2G1.txt']]
+# [['../EOS_files/HERCULES_EOS_S3.03_Forsterite-ANEOS-SLVTv1.0G1.txt', '../EOS_files/HERCULES_EOS_S1.81_Fe85Si15-ANEOS-SLVTv0.2G1.txt'], ['../EOS_files/HERCULES_EOS_S3.03_Forsterite-ANEOS-SLVTv1.0G1.txt', '../EOS_files/HERCULES_EOS_S1.81_Fe85Si15-ANEOS-SLVTv0.2G1.txt']]
 
 # NOTE: These are in CGS units
-DX = 1.19842e9 # cm
+DX = 1.20030e9 # cm
 # 1.19842e9 # cm
 # 8.4996e8 # cm
 # 9.9483e8 # cm
 # 1.20030e9 # cm
 
-DY = -3.3316e8 # cm
+DY = 5.8834e8 # cm
 # -3.3316e8 # cm
 # 7.1020e8 # cm
 # 3.0516e8 # cm
 # 5.8834e8 # cm
 
-V_IMP = 2.00002e6 # cm/s
+V_IMP = 9.7017e5 # cm/s
 # 2.00002e6 # cm/s
 # 9.1995e5 # cm/s
 # 1.13298e6 # cm/s
@@ -116,8 +118,8 @@ def new_mu(diatom_data, new_num_mu):
 #         |_.________.________._______.________.________._|
 def get_hercules_data(hero_fname):
     # Define blank planet and parameter classes
-    params = HERCULES_parameters()
-    planet = HERCULES_planet()
+    params = hstr.HERCULES_parameters()
+    planet = hstr.HERCULES_planet()
 
     # Read in HERCULES output
     with open(HERCULES_OUT_DIR+hero_fname, "rb") as f:
@@ -140,7 +142,7 @@ def get_diatom_data(params, planet, mat_fnames):
     eos_files = np.asarray([])
     for i, mat_fname in enumerate(mat_fnames):
         eos_files = np.append(eos_files, eos.PyEOS())
-        eos_files[i].read_EOSfile(mat_fname)
+        eos_files[i].read_EOSfile(mat_fname.encode("utf-8"))
 
     if DEBUG:
         Xs = []
@@ -426,6 +428,7 @@ def coordTransf(m1, m2):
     return [[x1, y1, 0], [x2, y2, 0]], [[vx1, 0, 0], [vx2, 0, 0]]
 
 
+
 #          __._______.________._______.________.________._
 #   _ ____|  .___    . ___    .  ___  .    ___ .     ___. |____ _
 #  / V | \\\/ | \\\\ ./ | \\\ . / | \ . /// | \. //// | \/// | V \
@@ -499,38 +502,23 @@ if __name__ == '__main__':
         velocities = [[0, 0, 0]]
         
     # write the DIATOM data to a text file in DIATOM syntax
-    assemblage += getAssemblage(diatom_data1, params1.run_name, planet1.omega_rot/2.0/np.pi, PDT_FLG, centers[0], velocities[0], 0)
+    assemblage += getAssemblage(diatom_data1,
+                                params1.run_name.decode("utf-8"),
+                                planet1.omega_rot/2.0/np.pi,
+                                PDT_FLG,
+                                centers[0],
+                                velocities[0],
+                                0)
     try:
-        assemblage += getAssemblage(diatom_data2, params2.run_name, planet2.omega_rot/2.0/np.pi, PDT_FLG, centers[1], velocities[1], 1)
+        assemblage += getAssemblage(diatom_data2,
+                                    params2.run_name.decode("utf-8"),
+                                    planet2.omega_rot/2.0/np.pi,
+                                    PDT_FLG,
+                                    centers[1],
+                                    velocities[1],
+                                    1)
     except:
         print("no planet 2")
         
     # Replace the DIATOM block in the CTH input-deck
     replace_diatom(assemblage)
-
-
-    '''
-    for i, (hero_fname, mat_fnames) in enumerate(zip(HERCULES_OUT_FNAMES, MATERIAL_FNAMES)):
-        # Get the HERCULES data
-        params, planet = get_hercules_data(hero_fname)    
-    
-        print 'omega_rot: ', planet.omega_rot
-        print 'aspect: ', planet.aspect
-
-        # extract the relavent data for DIATOM
-        diatom_data = get_diatom_data(params, planet, mat_fnames)
-
-        mu_per_poly = 4*len(diatom_data[0].xs)
-        print "Number of mu points per polygon: "+str(mu_per_poly)
-        
-        # If the number of mu points is too high CTH will complain so the we
-        # de-resolve
-        if mu_per_poly > 2400:
-            print "Number of polygon vertices too high. Deresolving to {}".format(NUM_NEW_MU*4)
-            new_mu(diatom_data, NUM_NEW_MU)
-
-        
-            
-        # write the DIATOM data to a text file in DIATOM syntax
-        assemblage += get_assemblage(diatom_data, params.run_name, planet.omega_rot/2.0/np.pi, PDT_FLG, center, velocity, i)
-    '''
