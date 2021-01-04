@@ -1,30 +1,33 @@
 # HOTCI
 
-(HERCULES Output To CTH Input)
+HERCULES Output To CTH Input
 
 # Introduction
 <details>
 
 <summary>
-HOTCI is intended to be used to study giant impacts (impacts between planet-sized bodies) by allowing the user to initialize a rotating body in an Eulerian shock physics code. This is desirable because previous Eulerian simulations of giant impact have not accurately initialized rotating bodies. Furthermore most impact simulation that have high angular momentum have been conducted with one method, namely Smoothed Particle Hydrodynamics. The results of these must be validated using different methods.
+HOTCI is designed to study giant impacts (impacts between planet-sized bodies) by allowing the user to initialize a rotating body in the Eulerian shock physics code, CTH. Most impact simulation that have high angular momentum have been conducted with one method, namely Smoothed Particle Hydrodynamics. The results of these must be validated using different methods.
 </summary>
 
-## HOTCI
-    HOTCI is a small library written in Python and C++ that can be used to simulate rapidly rotating bodies in the shock physics code CTH. This is accomplished through a multistep process (see Figure 1).
-A rapidly rotating body is generated using HERCULES (see section 1.2).
-The output of HERCULES (a custom binary format) is read by HOTCI
-The body is analyzed by HOTCI. During this step HOTCI might unresolve the body if the resolution in HERCULES is too high. HOTCI might also calculate the temperature of each HERCULES layer if the user desires.
-The data that defines the body is converted into a string format.
-A “blank” CTH input file is read by HOTCI (this file is not actually blank and must be a working CTH input file). HOTCI searches the file for the correct location to insert the simulations initial conditions. The initial conditions defined in the blank input file are then overwritten with the aforementioned string. HOTCI creates a new file such that the blank input file is undisturbed.
-CTH reads the newly created input file and the simulation is carried out.
+## Overview
+
+HOTCI is a small library written in Python and C++ that can be used to simulate rapidly rotating bodies in the shock physics code CTH. This is accomplished through a multistep process (see Figure 1).
+
+A rapidly rotating body is generated using HERCULES (see section 1.2). The output of HERCULES (a custom binary format) is read by HOTCI The body is analyzed by HOTCI. During this step HOTCI might unresolve the body if the resolution in HERCULES is too high. HOTCI might also calculate the temperature of each HERCULES layer if the user desires.
+
+The data that defines the body is converted into a string format. A “blank” CTH input file is read by HOTCI (this file is not actually blank and must be a working CTH input file). HOTCI searches the file for the correct location to insert the simulations initial conditions. The initial conditions defined in the blank input file are then overwritten with the aforementioned string. HOTCI creates a new file such that the blank input file is undisturbed. CTH reads the newly created input file and the simulation is carried out.
 
 ## HERCULES
+
 HERCULES (Highly Eccentric Rotating Concentric U [Potential] Layers Equilibrium Structure) is a program written by Simon Lock to solve for the equilibrium structure of a self-gravitating fluid. The algorithm used by HERCULES was originally found by Hubbard (2012, 2013) in order to study Jupiter. The algorithm has since been extended by Kong et al. (2013) and Hubbard et al. (2014) to accomodate bodies with large rotational distortion. HERCULES is an open-source manifestation of this algorithm, written in C++.
 
 ## CTH
-    CTH is a large shock-physics code that has been over-seen by many employees of Sandia National Laboratory. It is fundamentally an Eulerian method though at each time-step it solves the Lagrangian equations and remaps the solution to the Eulerian grid via a van Leer scheme that is accurate to second order (van Leer, 1977; McGlaun, 1982). CTH implements two major features that make it popular for simulating giant impacts. Firstly, it implements self-gravity, which is critical for studying any process in the large length regime. Secondly, it implements adaptive mesh refinement, wherein the Eulerian mesh is recursively subdivided to increase resolution locally, this saves computational resources when large regions of the simulation domain are occupied by the void of space.
 
-Figure 1. A schematic of how HOTCI works, note that only the topmost pictures contain real data the rest of the images have been rendered solely for illustrative purposes. (A) In this step HOTCI reads a HERCULES output file and converts it into a CTH input file. (B) CTH reads the input file and processes the body one layer at a time. Each layer is homogeneous in density, pressure, and temperature. (C) The layer is incorporated into the Eulerian mesh. In this step CTH gives each cell of the mesh a velocity, volume fraction for each material, and any necessary thermodynamic variables. (D) This panel is included to illustratculties one has when representing a spherical object in a rectangular grid, the resolution is exaggerated. (E) A cross section of an example body in CTH.
+CTH is a large shock-physics code that has been over-seen by many employees of Sandia National Laboratory. It is fundamentally an Eulerian method though at each time-step it solves the Lagrangian equations and remaps the solution to the Eulerian grid via a van Leer scheme that is accurate to second order (van Leer, 1977; McGlaun, 1982). CTH implements two major features that make it popular for simulating giant impacts. Firstly, it implements self-gravity, which is critical for studying any process in the large length regime. Secondly, it implements adaptive mesh refinement, wherein the Eulerian mesh is recursively subdivided to increase resolution locally, this saves computational resources when large regions of the simulation domain are occupied by the void of space.
+
+<img src=images/HOTCI_graphic.png>
+
+The schematic above illustrates how HOTCI works, note that only the topmost pictures contain real data the rest of the images have been rendered solely for illustrative purposes. (A) In this step HOTCI reads a HERCULES output file and converts it into a CTH input file. (B) CTH reads the input file and processes the body one layer at a time. Each layer is homogeneous in density, pressure, and temperature. (C) The layer is incorporated into the Eulerian mesh. In this step CTH gives each cell of the mesh a velocity, volume fraction for each material, and any necessary thermodynamic variables. (D) This panel is included to illustratculties one has when representing a spherical object in a rectangular grid, the resolution is exaggerated. (E) A cross section of an example body in CTH.
 
 </details>
 
