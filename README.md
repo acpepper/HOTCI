@@ -1,6 +1,6 @@
 # HOTCI
 
-HERCULES Output To CTH Input
+**H**ERCULES **O**utput **T**o **C**TH **I**nput
 
 ## Introduction
 <details>
