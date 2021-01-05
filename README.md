@@ -99,9 +99,9 @@ eos$ cp build/lib.linux-x86_64-2.7/eos.so ../
 ```
 If the eos.so file was not created but distutils and Cython were properly installed, then the issue probably occurred when trying to link Python.h. To fix this error open the setup.py file and modify the include_dirs list to contain the directory where your Python.h file is located. On my machine this is the /opt/local/include/ directory.
 
-3.3 Running
-    Once the necessary libraries have been downloaded and compiled, the HOTCI.py file must be modified to match your work environment. This is accomplished by opening HOTCI.py file. Lines 17-38 contain all the variables a user might want to modify. They appear as follows.
-
+### Running
+Once the necessary libraries have been downloaded and compiled, the HOTCI.py file must be modified to match your work environment. This is accomplished by opening HOTCI.py file. Lines 17-38 contain all the variables a user might want to modify. They appear as follows.
+```
 HERCULES_OUT_DIR = "../Output/"
 HERCULES_OUT_FNAMES = ["M96L1.5_L1.48725_N200_Nm800_k12_f020_p10000_l1_0_1.5_fi\
 nal", "M12omega2e-4_L1.983_N100_Nm400_k12_f020_p10000_l1_0_1.5_final"]
@@ -117,9 +117,6 @@ MATERIAL_FNAMES = ['../EOS_files/HERCULES_EOS_forsterite_S3.20c_log.txt', '../EO
 # 3: pressure and density
 PDT_FLG = 2
 
-
-
-
 # NOTE: These are in CGS units
 CENTERS = [[0, 0, 0], [7.056e8, 7.056e8, 0]]
 VELOCITIES = [[0, 0, 0], [-8.795e5, 0, 0]]
@@ -132,11 +129,11 @@ VELOCITIES = [[0, 0, 0], [-8.795e5, 0, 0]]
 NUM_NEW_MU = 600
 
 INDENT = " "
-
+```
 Each variable’s usage is detailed in section 2.1. It is particularly important that the user updates their file names and directories.
-    
-    After the variables have been updated HOTCI can be run by simply typing the following into the command line.
 
+After the variables have been updated HOTCI can be run by simply typing the following into the command line.
+```
 HOTCI$ python HOTCI.py
-
+```
 </details>
