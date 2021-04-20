@@ -188,9 +188,10 @@ class extEOStable:
             self.units = 'Units: rho g/cm3, T K, P GPa, U MJ/kg, A MJ/kg, S MJ/K/kg, cs cm/s, cv MJ/K/kg, KPA flag. 2D arrays are (NT,ND).'
         else:
             self.units = unitstxt
-        sesamefile = open(fname,"r")  
-        sesamedata=sesamefile.readlines()
-        sesamefile.close()
+
+        with open(fname,"r") as sesamefile:
+            sesamedata=sesamefile.readlines()
+
         nskip = 6 # skip standard header to get to the content of the 301 table
         # num.density, num. temps
         tmp = sesamedata[nskip][0:16]

@@ -23,6 +23,12 @@ void EOS::read_EOSfile(std::string file_name)
   //EDIT
   std::ifstream EOSfile(fname.c_str());
 
+  //EDIT (4/4/21 by A.C. Pepper)
+  // must throw exception for file read errors
+  if (!EOSfile) {
+    throw std::runtime_error("File not found: "+fname);
+  }
+  
   //ignore the header and read the data type
   std::string temp("temp");
   std::string delimiter("#");

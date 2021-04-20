@@ -6,6 +6,7 @@ sys.path.append("/home/acpepper/HOTCI_stuff/HERCULES/HOTCI")
 
 import lib.eos as eos
 import lib.HERCULES_structures as hstr
+import json
 from scipy import interpolate
 from scipy.optimize import fsolve
 import numpy as np
@@ -15,65 +16,110 @@ import matplotlib.pyplot as plt
 
 
 
-# Causes the program to print extra information about the structure and
-# make plots of it
-DEBUG = False
-if DEBUG:
-    import matplotlib.pyplot as plt
+class IO_Data:
+    def __init__(self, json_Fname):
+        try:
+            with open(json_Fname, 'r') as inFile:
+                inData=inFile.read()
 
-CTH_IN_DIR = "CTH_in/"
-CTH_BASE_FNAME = "isolatedBody_conv2_master.in"
-CTH_IN_FNAME = "M1.05_L1.35_maxAMR8_Gcycle1_conv2.in"
+            print("initializing IO_Data object from '{}'".format(json_Fname))
 
-HERCULES_OUT_DIR = "../Output/"
-HERCULES_OUT_FNAMES = ['M1.05L1.35_L1.33357_N200_Nm800_k12_f021_p10000_l1_0_1.5_final']
-# ['M1.05L2.69_hiIronS_L2.66714_N200_Nm800_k12_f021_p10000_l1_0_1.5_final', 'M0.05L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final']
-# ["M0.9L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final", "M0.13L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final"]
-# ["M0.75L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final", "M0.3L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final"]
-# ["M0.57L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final", "M0.47L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final"]
+            # parse file
+            inObj = json.loads(inData)
+        except:
+            print("initializing empty IO_Data object")
+        
+        try:
+            self.Verbose = inObj["Verbose"]
+        except:
+            self.Verbose = False
+        try:
+            self.CTH_base_Fname = inObj["CTH_base_Fname"]
+        except:
+            self.CTH_base_Fname = "CTH_base/example.in"
+        try:
+            self.CTH_in_Fname = inObj["CTH_in_Fname"]
+        except:
+            self.CTH_in_Fname = "../CTH_in/example_with_initCond.in"
+            
+        self.HERCULES_out_Fnames = []
+        self.mat_Fnames = []
+        self.N_planets = 0
+        try:
+            for i, planet in enumerate(inObj["HERCULES_bodies"]):
+                self.HERCULES_out_Fnames.append(planet["HERCULES_out_Fname"])
+                self.mat_Fnames.append([])
+                try:
+                    for material in planet["mat_Fnames"]:
+                        self.mat_Fnames[i].append(material)
+                except:
+                    self.mat_Fnames = [["../EOS_files/default_mantle1.txt",
+		                        "../EOS_files/default_core1.txt"],
+                                       ["../EOS_files/default_mantle2.txt",
+		                        "../EOS_files/default_core2.txt"]]
+                self.N_planets += 1
+        except:
+            self.HERCULES_out_Fnames = ["../HERCULES_out/default_target",
+                                        "../HERCULES_out/default_impactor"]
 
-# ['M1.05L2.69_hiIronS_L2.66714_N200_Nm800_k12_f021_p10000_l1_0_1.5_final']
+        # determine what has been used to describe the impact angle and distance
+        initCond_varNames = ["dx", "dy", "r_imp", "b", "theta"]
+        initCond_func_args = [None, None, None, None, None]
+        for i, initCond_varName in enumerate(initCond_varNames):
+            try:
+                initCond_func_args[i] = inObj[initCond_varName]
+            except:
+                continue
+        
+        # solve a system of equations for the un-included variable names
+        def initCond_func(x, dx=None, dy=None, r_imp=None, b=None, theta=None):
+            if dx:
+                x[0] = dx
+            if dy:
+                x[1] = dy
+            if r_imp:
+                x[2] = r_imp
+            if b:
+                x[3] = b
+            if theta:
+                x[4] = theta
 
-# [body1 mantle, body1 core, body2 mantle, body2 core, ...]
-MATERIAL_FNAMES = [['../EOS_files/HERCULES_EOS_S3.03_Forsterite-ANEOS-SLVTv1.0G1.txt', '../EOS_files/HERCULES_EOS_S1.81_Fe85Si15-ANEOS-SLVTv0.2G1.txt']]
-# [['../EOS_files/HERCULES_EOS_S3.03_Forsterite-ANEOS-SLVTv1.0G1.txt', '../EOS_files/HERCULES_EOS_S1.81_Fe85Si15-ANEOS-SLVTv0.2G1.txt'], ['../EOS_files/HERCULES_EOS_S3.03_Forsterite-ANEOS-SLVTv1.0G1.txt', '../EOS_files/HERCULES_EOS_S1.81_Fe85Si15-ANEOS-SLVTv0.2G1.txt']]
+            return [np.cos(x[4]) - x[0]/x[2],
+                    np.sin(x[4]) - x[1]/x[2],
+                    np.tan(x[4]) - x[1]/x[0],
+                    x[2] - np.sqrt(x[0]**2 + x[1]**2),
+                    x[3] - x[1]/x[2]]
 
-# NOTE: These are in CGS units
-DX = 1.20030e9 # cm
-# 1.19842e9 # cm
-# 8.4996e8 # cm
-# 9.9483e8 # cm
-# 1.20030e9 # cm
+        initCond = fsolve(initCond_func,
+                          [1e9, 1e9, 1.4e9, 1e9, 0.785],
+                          args=tuple(initCond_func_args))
+    
+        self.dx = initCond[0]
+        self.dy = initCond[1]
+        self.r_imp = initCond[2]
+        self.b = initCond[3]
+        self.theta = initCond[4]
 
-DY = 5.8834e8 # cm
-# -3.3316e8 # cm
-# 7.1020e8 # cm
-# 3.0516e8 # cm
-# 5.8834e8 # cm
-
-V_IMP = 9.7017e5 # cm/s
-# 2.00002e6 # cm/s
-# 9.1995e5 # cm/s
-# 1.13298e6 # cm/s
-# 9.7017e5 # cm/s
-
-# PD_FLAG key: 
-# 1: pressure and temperature
-# 2: density and temperature
-# 3: pressure and density
-PDT_FLG = 2
-
-# The number of layers over which we smooth the temperature. This is done to
-# prevent spurious vaporazation. We enforce that the last layer is T = 300K
-I_SM = 0
-# CTH limits the number of vertexes in its input files so when the HERCULES
-# resolution is too fine the shape cannot be transfered in a 1-to-1 fashion.
-# When this occurs, we unresolve the HERCULES structure following a cubic
-# spline interpolation of the original points. The new number of points is
-# defined by NUM_NEW_MU.
-NUM_NEW_MU = 600
-
-INDENT = " "
+        try:
+            self.v_imp = inObj["v_imp"]
+        except:
+            self.v_imp = 0
+        try:
+            self.pdt_flg = inObj["pdt_flg"]
+        except:
+            self.pdt_flg = 2
+        try:
+            self.i_sm = inObj["i_sm"]
+        except:
+            self.i_sm = 0
+        try:
+            self.N_new_mu = inObj["N_new_mu"]
+        except:
+            self.N_new_mu = 600
+        try:
+            self.indent = inObj["indent"]
+        except:
+            self.indent = " "
 
 
 
@@ -93,21 +139,21 @@ class Diatom_Data:
 #  / V | \\\/ | \\\\ ./ | \\\ . / | \ . /// | \. //// | \/// | V \
 #  \_\_|_///\_|_//// .\_|_/// . \_|_/ . \\\_|_/. \\\\_|_/\\\_|_/_/
 #          |_._______.________._______.________.________._|
-def new_mu(diatom_data, new_num_mu):
+def new_mu(planet_diatom, N_new_mu):
     # Iterate over the layers
-    for i, layer in enumerate(diatom_data):
+    for i, layer in enumerate(planet_diatom):
         # Get a cubic spline describing the shape of the layer
         spl = interpolate.splrep(layer.zs, layer.xs)
         
         # Generate new mu points
         new_zs = np.linspace(0,
-                             layer.zs[-1], NUM_NEW_MU,
+                             layer.zs[-1], N_new_mu,
                              endpoint=True)
         
         new_xs = interpolate.splev(new_zs, spl)
 
-        diatom_data[i].xs = new_xs
-        diatom_data[i].zs = new_zs
+        planet_diatom[i].xs = new_xs
+        planet_diatom[i].zs = new_zs
 
 
 
@@ -122,7 +168,7 @@ def get_hercules_data(hero_fname):
     planet = hstr.HERCULES_planet()
 
     # Read in HERCULES output
-    with open(HERCULES_OUT_DIR+hero_fname, "rb") as f:
+    with open(hero_fname, "rb") as f:
         params.read_binary(f)
         planet.read_binary(f)
 
@@ -135,8 +181,8 @@ def get_hercules_data(hero_fname):
 #  / V | \\\/ | \\\\ ./ | \\\ . / | \ . /// | \. //// | \/// | V \
 #  \_\_|_///\_|_//// .\_|_/// . \_|_/ . \\\_|_/. \\\\_|_/\\\_|_/_/
 #         |_.________.________._______.________.________._|
-def get_diatom_data(params, planet, mat_fnames):
-    diatom_data = np.zeros(planet.Nlayer, dtype = object)
+def get_planet_diatoms(params, planet, mat_fnames, ioData):
+    planet_diatom = np.zeros(planet.Nlayer, dtype=object)
 
     # initialize EOS files in order to convert pressure to temperature
     eos_files = np.asarray([])
@@ -144,7 +190,7 @@ def get_diatom_data(params, planet, mat_fnames):
         eos_files = np.append(eos_files, eos.PyEOS())
         eos_files[i].read_EOSfile(mat_fname.encode("utf-8"))
 
-    if DEBUG:
+    if ioData.Verbose:
         Xs = []
         Rho1s = []
         P1s = []
@@ -152,90 +198,90 @@ def get_diatom_data(params, planet, mat_fnames):
         Rho2s = []
         P2s = []
         T2s = []
-
+        
     # Get the material, density, and mu values describing each layer
     # (note that mu is proportional to the z-component of the points)
     for i, layer in enumerate(planet.layers):
-        diatom_data[i] = Diatom_Data()
-        diatom_data[i].material = planet.flag_material[i] + 1
+        planet_diatom[i] = Diatom_Data()
+        planet_diatom[i].material = planet.flag_material[i] + 1
         
         # make the outer layer extra cold to avoid spurrious vaporization
-        if i <= I_SM - 1:
+        if i <= ioData.i_sm - 1:
             if i == 0:
-                diatom_data[i].T = .025
+                planet_diatom[i].T = .025
             else:
                 # Use the EOS class to calculate T
                 # and convert K -> ev
-                diatom_data[i].T = eos_files[planet.flag_material[i]].calc_T(planet.press[i])/11604.0
-                diatom_data[i].T = diatom_data[i].T/2 + diatom_data[i-1].T/2
+                planet_diatom[i].T = eos_files[planet.flag_material[i]].calc_T(planet.press[i])/11604.0
+                planet_diatom[i].T = planet_diatom[i].T/2 + planet_diatom[i-1].T/2
                 # Now get the density
                 # Convert kg m^-3 -> g cm^-3
-                diatom_data[i].rho = eos_files[planet.flag_material[i]].calc_rho_from_T(diatom_data[i].T*11604.0)/1000.0
+                planet_diatom[i].rho = eos_files[planet.flag_material[i]].calc_rho_from_T(planet_diatom[i].T*11604.0)/1000.0
                 # Now get the pressure
                 # Convert kg s^-2 m^-1 -> g s^-2 cm^-1
-                diatom_data[i].p = eos_files[planet.flag_material[i]].calc_p_from_T(diatom_data[i].T*11604.0)*10.0
-            if DEBUG:
+                planet_diatom[i].p = eos_files[planet.flag_material[i]].calc_p_from_T(planet_diatom[i].T*11604.0)*10.0
+            if ioData.Verbose:
                 Rho1s.append(planet.real_rho[i]/1000.0)
                 P1s.append(planet.press[i]*10.0)
                 T1s.append(eos_files[planet.flag_material[i]].calc_T(planet.press[i])/11604.0)
-                Rho2s.append(diatom_data[i].rho)
-                P2s.append(diatom_data[i].p)
-                T2s.append(diatom_data[i].T)
+                Rho2s.append(planet_diatom[i].rho)
+                P2s.append(planet_diatom[i].p)
+                T2s.append(planet_diatom[i].T)
         else:
             # Convert kg m^-3 -> g cm^-3
-            diatom_data[i].rho = planet.real_rho[i]/1000.0
+            planet_diatom[i].rho = planet.real_rho[i]/1000.0
             # Convert kg s^-2 m^-1 -> g s^-2 cm^-1
-            diatom_data[i].p = planet.press[i]*10.0
+            planet_diatom[i].p = planet.press[i]*10.0
             # Use the EOS class to calculate T
             # and convert K -> ev
-            diatom_data[i].T = eos_files[planet.flag_material[i]].calc_T(planet.press[i])/11604.0
+            planet_diatom[i].T = eos_files[planet.flag_material[i]].calc_T(planet.press[i])/11604.0
 
-            if DEBUG:
-                Rho1s.append(diatom_data[i].rho)
-                P1s.append(diatom_data[i].p)
-                T1s.append(diatom_data[i].T)
-                Rho2s.append(diatom_data[i].rho)
-                P2s.append(diatom_data[i].p)
-                T2s.append(diatom_data[i].T)
+            if ioData.Verbose:
+                Rho1s.append(planet_diatom[i].rho)
+                P1s.append(planet_diatom[i].p)
+                T1s.append(planet_diatom[i].T)
+                Rho2s.append(planet_diatom[i].rho)
+                P2s.append(planet_diatom[i].p)
+                T2s.append(planet_diatom[i].T)
 
         for j, (mu, xi) in enumerate(zip(layer.mu, layer.xi)):
             sin_theta_sqrd = 1.0 - mu**2.0
             if sin_theta_sqrd < 0.0:
                 sin_theta_sqrd = 0.0
                 
-            diatom_data[i].xs = np.append(diatom_data[i].xs, xi*(layer.a*100.0)*np.sqrt(sin_theta_sqrd))
-            diatom_data[i].zs = np.append(diatom_data[i].zs, xi*(layer.a*100.0)*mu)
+            planet_diatom[i].xs = np.append(planet_diatom[i].xs, xi*(layer.a*100.0)*np.sqrt(sin_theta_sqrd))
+            planet_diatom[i].zs = np.append(planet_diatom[i].zs, xi*(layer.a*100.0)*mu)
             
-        if DEBUG:
-            Xs.append(diatom_data[i].xs[0])
+        if ioData.Verbose:
+            Xs.append(planet_diatom[i].xs[0])
             # Plot the mu points in each layer
-            # plt.scatter(diatom_data[i].xs, diatom_data[i].zs)
+            # plt.scatter(planet_diatom[i].xs, planet_diatom[i].zs)
             print('Layer {}:'.format(i))
-            print('material: {:d}'.format(diatom_data[i].material))
-            print('density: {:1.3e}'.format(diatom_data[i].rho))
-            print('pressure: {:1.3e}'.format(diatom_data[i].p))
-            print('temperature: {:1.3e}'.format(diatom_data[i].T))
+            print('material: {:d}'.format(planet_diatom[i].material))
+            print('density: {:1.3e}'.format(planet_diatom[i].rho))
+            print('pressure: {:1.3e}'.format(planet_diatom[i].p))
+            print('temperature: {:1.3e}'.format(planet_diatom[i].T))
             print('==========================')
 
-    if DEBUG:
+    if ioData.Verbose:
         plt.plot(Xs, Rho1s, 'r-')
         plt.plot(Xs, Rho2s, 'b--')
         plt.show()
 
     rhos = np.asarray([])
     Ts = []
-    for data in diatom_data:
+    for data in planet_diatom:
         rhos = np.append(rhos, data.rho)
         Ts.append(data.T)
 
-    if DEBUG:
-        plt.plot(np.arange(0, len(diatom_data), 1), rhos)
+    if ioData.Verbose:
+        plt.plot(np.arange(0, len(planet_diatom), 1), rhos)
         plt.show()
 
-        plt.plot(np.arange(0, len(diatom_data), 1), Ts)
+        plt.plot(np.arange(0, len(planet_diatom), 1), Ts)
         plt.show()
 
-    return diatom_data
+    return planet_diatom
 
 
 
@@ -244,14 +290,26 @@ def get_diatom_data(params, planet, mat_fnames):
 #  / V | \\\/ | \\\\ ./ | \\\ . / | \ . /// | \. //// | \/// | V \
 #  \_\_|_///\_|_//// .\_|_/// . \_|_/ . \\\_|_/. \\\\_|_/\\\_|_/_/
 #         |__._______.________._______.________.________._|
-def get_r2dp_insert(xs_outer, ys_outer, xs_inner, ys_inner, center, ax):
-    r2dp_insert = INDENT + '  insert r2dp\n'
-    indent = "   " + INDENT
-    r2dp_insert += indent + 'ce1 '+str(center[0])+', '+str(center[1])+', '+str(center[2])+'\n'
-    r2dp_insert += indent + 'ce2 '+str(center[0])+', '+str(center[1])+', '+str(center[2] + 1.0)+'\n'
-    r2dp_insert += indent + 'ce3 '+str(center[0] + 1.0)+', '+str(center[1])+', '+str(center[2])+'\n'
-    r2dp_insert += indent + 'twist = 1\n'
-    r2dp_insert += indent + 'pitch = 0, 0\n'
+def get_r2dp_insert(xs_outer, ys_outer, xs_inner, ys_inner, ioData, center, ax):
+    r2dp_insert = (3*ioData.indent
+                   +'insert r2dp\n')
+    r2dp_insert += (4*ioData.indent
+                    +'ce1 '
+                    +str(center[0])+', '
+                    +str(center[1])+', '
+                    +str(center[2])+'\n')
+    r2dp_insert += (4*ioData.indent
+                    +'ce2 '
+                    +str(center[0])+', '
+                    +str(center[1])+', '
+                    +str(center[2] + 1.0)+'\n')
+    r2dp_insert += (4*ioData.indent
+                    +'ce3 '
+                    +str(center[0] + 1.0)+', '
+                    +str(center[1])+', '
+                    +str(center[2])+'\n')
+    r2dp_insert += 4*ioData.indent+'twist = 1\n'
+    r2dp_insert += 4*ioData.indent+'pitch = 0, 0\n'
 
     x2plot = []
     y2plot = []
@@ -262,15 +320,18 @@ def get_r2dp_insert(xs_outer, ys_outer, xs_inner, ys_inner, center, ax):
         if j == 0:
             x2plot.append(0.0)
             y2plot.append(-y)
-            r2dp_insert += indent + 'p'+ str(i) + ' = ' + str(0)+ ', ' + str(-y) + '\n'
+            r2dp_insert += (4*ioData.indent
+                            +'p'+str(i)+' = '+str(0)+', '+str(-y)+'\n')
         elif j == len(xs_outer) - 1:
             x2plot.append(x)
             y2plot.append(0.0)
-            r2dp_insert += indent + 'p'+ str(i) + ' = ' + str(x)+ ', ' + str(0) + '\n'
+            r2dp_insert += (4*ioData.indent
+                            +'p'+str(i)+' = '+str(x)+', '+str(0)+'\n')
         else:
             x2plot.append(x)
             y2plot.append(-y)
-            r2dp_insert += indent + 'p'+ str(i) + ' = ' + str(x)+ ', ' + str(-y) + '\n'
+            r2dp_insert += (4*ioData.indent
+                            +'p'+str(i)+' = '+str(x)+', '+str(-y)+'\n')
             
         i += 1
 
@@ -281,11 +342,13 @@ def get_r2dp_insert(xs_outer, ys_outer, xs_inner, ys_inner, center, ax):
         elif j == len(xs_outer) - 1:
             x2plot.append(0)
             y2plot.append(y)
-            r2dp_insert += indent + 'p'+ str(i) + ' = ' + str(0)+ ', ' + str(y) + '\n'
+            r2dp_insert += (4*ioData.indent
+                            +'p'+str(i)+' = '+str(0)+', '+str(y)+'\n')
         else:
             x2plot.append(x)
             y2plot.append(y)
-            r2dp_insert += indent + 'p'+ str(i) + ' = ' + str(x)+ ', ' + str(y) + '\n'
+            r2dp_insert += (4*ioData.indent
+                            +'p'+str(i)+' = '+str(x)+', '+str(y)+'\n')
 
         i += 1
 
@@ -294,15 +357,18 @@ def get_r2dp_insert(xs_outer, ys_outer, xs_inner, ys_inner, center, ax):
         if j == 0:
             x2plot.append(0.0)
             y2plot.append(y)
-            r2dp_insert += indent + 'p'+ str(i) + ' = ' + str(0)+ ', ' + str(y) + '\n'
+            r2dp_insert += (4*ioData.indent
+                            +'p'+str(i)+' = '+str(0)+', '+str(y)+'\n')
         elif j == len(xs_outer) - 1:
             x2plot.append(x)
             y2plot.append(0.0)
-            r2dp_insert += indent + 'p'+ str(i) + ' = ' + str(x)+ ', ' + str(0) + '\n'
+            r2dp_insert += (4*ioData.indent
+                            +'p'+str(i)+' = '+str(x)+', '+str(0)+'\n')
         else:
             x2plot.append(x)
             y2plot.append(y)
-            r2dp_insert += indent + 'p'+ str(i) + ' = ' + str(x)+ ', ' + str(y) + '\n'
+            r2dp_insert += (4*ioData.indent
+                            +'p'+str(i)+' = '+str(x)+', '+str(y)+'\n')
 
         i += 1
 
@@ -313,17 +379,19 @@ def get_r2dp_insert(xs_outer, ys_outer, xs_inner, ys_inner, center, ax):
         elif j == len(xs_outer) - 1:
             x2plot.append(0.0)
             y2plot.append(-y)
-            r2dp_insert += indent + 'p'+ str(i) + ' = ' + str(0)+ ', ' + str(-y) + '\n'
+            r2dp_insert += (4*ioData.indent
+                            +'p'+str(i)+' = '+str(0)+', '+str(-y)+'\n')
         else:
             x2plot.append(x)
             y2plot.append(-y)
-            r2dp_insert += indent + 'p'+ str(i) + ' = ' + str(x)+ ', ' + str(-y) + '\n'
+            r2dp_insert += (4*ioData.indent
+                            +'p'+str(i)+' = '+str(x)+', '+str(-y)+'\n')
 
         i += 1
 
     ax.plot(x2plot, y2plot, linewidth = 1.5, linestyle = '--')
         
-    r2dp_insert += INDENT + '  endi\n'
+    r2dp_insert += 3*ioData.indent+'endi\n'
     return r2dp_insert, ax
 
 
@@ -334,47 +402,73 @@ def get_r2dp_insert(xs_outer, ys_outer, xs_inner, ys_inner, center, ax):
 #  \_\_|_///\_|_//// .\_|_/// . \_|_/ . \\\_|_/. \\\\_|_/\\\_|_/_/
 #         |_.________.________._______.________.________._|
 # This function writes the planet data to an 'assemblage' in DIATOM
-def getAssemblage(diatom_data, run_name, rot_vel, pdt_flg, center, velocity, planetNum):
-    assemblage = INDENT + 'assemblage \''+run_name+'\'\n'
-    assemblage += INDENT + ' center '+str(center[0])+', '+str(center[1])+', '+str(center[2])+'\n'
-    assemblage += INDENT + ' avelocity 0, 0, '+str(rot_vel)+'\n'
-    assemblage += INDENT + ' velocity '+str(velocity[0])+', '+str(velocity[1])+', '+str(velocity[2])+'\n'
+def getAssemblage(planet_diatom, run_name, rot_vel, ioData, center, velocity, planetNum):
+    assemblage = ioData.indent+'assemblage \''+run_name+'\'\n'
+    assemblage += (2*ioData.indent
+                   +'center '
+                   +str(center[0])+', '
+                   +str(center[1])+', '
+                   +str(center[2])+'\n')
+    assemblage += ioData.indent+' avelocity 0, 0, '+str(rot_vel)+'\n'
+    assemblage += (2*ioData.indent
+                   +'velocity '
+                   +str(velocity[0])+', '
+                   +str(velocity[1])+', '
+                   +str(velocity[2])+'\n')
 
     fig, ax = plt.subplots()
     
     # Insert a layer into the diatom file
-    for i, diatom_layer in enumerate(diatom_data):
-        assemblage += INDENT+' package \'layer'+str(i)+'\'\n'
-        assemblage += INDENT+'  mat '+str(diatom_layer.material)+'\n'
-        assemblage += INDENT+'  m'+str(diatom_layer.material)+'id '+str(planetNum)+'\n'
+    for i, diatom_layer in enumerate(planet_diatom):
+        assemblage += (2*ioData.indent
+                       +'package \'layer'+str(i)+'\'\n')
+        assemblage += (3*ioData.indent
+                       +'mat '+str(diatom_layer.material)+'\n')
+        assemblage += (3*ioData.indent
+                       +'m'+str(diatom_layer.material)
+                       +'id '+str(planetNum)+'\n')
 
-        if pdt_flg == 1:
-            assemblage += INDENT+'  pressure '+str(diatom_layer.p)+'\n'
-            assemblage += INDENT+'  temperature '+str(diatom_layer.T)+'\n'
-        elif pdt_flg == 2:
-            assemblage += INDENT+'  density '+str(diatom_layer.rho)+'\n'
-            assemblage += INDENT+'  temperature '+str(diatom_layer.T)+'\n'
-        elif pdt_flg == 3:
-            assemblage += INDENT+'  density '+str(diatom_layer.rho)+'\n'
-            assemblage += INDENT+'  pressure '+str(diatom_layer.p)+'\n'
+        if ioData.pdt_flg == 1:
+            assemblage += (3*ioData.indent
+                           +'pressure '+str(diatom_layer.p)+'\n')
+            assemblage += (3*ioData.indent
+                           +'temperature '+str(diatom_layer.T)+'\n')
+        elif ioData.pdt_flg == 2:
+            assemblage += (3*ioData.indent
+                           +'density '+str(diatom_layer.rho)+'\n')
+            assemblage += (3*ioData.indent
+                           +'temperature '+str(diatom_layer.T)+'\n')
+        elif ioData.pdt_flg == 3:
+            assemblage += (3*ioData.indent
+                           +'density '+str(diatom_layer.rho)+'\n')
+            assemblage += (3*ioData.indent
+                           +'pressure '+str(diatom_layer.p)+'\n')
         else:
             error('Invalid PDT_FLG')
         
-        if i == len(diatom_data) - 1:
-            r2dp_insert, ax = get_r2dp_insert(diatom_layer.xs[:], diatom_layer.zs[:], [0.0], [0.0], center, ax)
+        if i == len(planet_diatom) - 1:
+            r2dp_insert, ax = get_r2dp_insert(diatom_layer.xs[:],
+                                              diatom_layer.zs[:],
+                                              [0.0],
+                                              [0.0],
+                                              ioData, center, ax)
             assemblage += r2dp_insert
         else:
-            r2dp_insert, ax = get_r2dp_insert(diatom_layer.xs[:], diatom_layer.zs[:], diatom_data[i + 1].xs[:], diatom_data[i + 1].zs[:], center, ax)
+            r2dp_insert, ax = get_r2dp_insert(diatom_layer.xs[:],
+                                              diatom_layer.zs[:],
+                                              planet_diatom[i + 1].xs[:],
+                                              planet_diatom[i + 1].zs[:],
+                                              ioData, center, ax)
             assemblage += r2dp_insert
 
-        assemblage += INDENT+' endpackage\n'
+        assemblage += 2*ioData.indent+'endpackage\n'
 
-    assemblage += INDENT + 'endassemblage\n'
+    assemblage += ioData.indent+'endassemblage\n'
 
-    if DEBUG:
+    if ioData.Verbose:
         ax.set_title('Inserted layer boundaries')
-        ax.set_xlim(0, max(diatom_data[0].xs[:]))
-        ax.set_ylim(0, max(diatom_data[0].zs[:]))
+        ax.set_xlim(0, max(planet_diatom[0].xs[:]))
+        ax.set_ylim(0, max(planet_diatom[0].zs[:]))
         plt.show()
 
     return assemblage
@@ -386,11 +480,11 @@ def getAssemblage(diatom_data, run_name, rot_vel, pdt_flg, center, velocity, pla
 #  / V | \\\/ | \\\\ ./ | \\\ . / | \ . /// | \. //// | \/// | V \
 #  \_\_|_///\_|_//// .\_|_/// . \_|_/ . \\\_|_/. \\\\_|_/\\\_|_/_/
 #          |_._______.________._______.________.________._|
-def replace_diatom(diatom):
+def replace_diatom(diatom, ioData):
     # open 'blank' CTH input deck
-    CTH_base = open(CTH_IN_DIR+CTH_BASE_FNAME, 'r')
-    CTH_in = open(CTH_IN_DIR+CTH_IN_FNAME, 'w')
-    print("Writing to {}".format(CTH_IN_FNAME))
+    CTH_base = open(ioData.CTH_base_Fname, 'r')
+    CTH_in = open(ioData.CTH_in_Fname, 'w')
+    print("Writing to {}".format(ioData.CTH_in_Fname))
 
     CTH_in_str = re.sub(r'(?<=\s)diatom.*?enddiatom', '\ndiatom\n'+diatom+'enddiatom\n', CTH_base.read(), flags = re.DOTALL)
 
@@ -407,25 +501,34 @@ def replace_diatom(diatom):
 #  / V | \\\/ | \\\\ ./ | \\\ . / | \ . /// | \. //// | \/// | V \
 #  \_\_|_///\_|_//// .\_|_/// . \_|_/ . \\\_|_/. \\\\_|_/\\\_|_/_/
 #         |__._______.________._______.________.________._|
-def coordTransf(m1, m2):
+def coordTransf(ioData, m1, m2):
     print("Arranging bodies in center of mass coordinates")
-    print("b = {}".format(DY/pow(DX**2 + DY**2, 0.5)))
+    print("b = {} ({})".format(ioData.dy/pow(ioData.dx**2 + ioData.dy**2, 0.5),
+                               ioData.b))
     
     mTot = m1 + m2
     mf1 = m1/mTot
     mf2 = m2/mTot
     # First shift the planets so that the center of mass is at the origin
-    x1 = -mf2*DX
-    y1 = -mf2*DY
-    x2 = mf1*DX
-    y2 = mf1*DY
+    x1 = -mf2*ioData.dx
+    y1 = -mf2*ioData.dy
+    x2 = mf1*ioData.dx
+    y2 = mf1*ioData.dy
     
     # Now we use a mass-averaged velocity for each planet so that the
     # linear momentum is zero
-    vx1 = mf2*V_IMP
-    vx2 = -mf1*V_IMP
+    vx1 = mf2*ioData.v_imp
+    vx2 = -mf1*ioData.v_imp
 
     return [[x1, y1, 0], [x2, y2, 0]], [[vx1, 0, 0], [vx2, 0, 0]]
+    
+
+
+#          __._______.________._______.________.________._
+#   _ ____|  .___    . ___    .  ___  .    ___ .     ___. |____ _
+#  / V | \\\/ | \\\\ ./ | \\\ . / | \ . /// | \. //// | \/// | V \
+#  \_\_|_///\_|_//// .\_|_/// . \_|_/ . \\\_|_/. \\\\_|_/\\\_|_/_/
+#         |__._______.________._______.________.________._|
 
 
 
@@ -435,90 +538,80 @@ def coordTransf(m1, m2):
 #  \_\_|_///\_|_//// .\_|_/// . \_|_/ . \\\_|_/. \\\\_|_/\\\_|_/_/
 #         |__._______.________._______.________.________._|
 if __name__ == '__main__':
+    ioData = IO_Data("place-holder-name")
+    
+    # parse commandline arguments
+    # NOTE: commands will be overwritten by the last argument
+    #       e.g. "-v 5e5 -v 6e5" will produce a set of initial conditions with
+    #       an impact velocity of 6e5 cm/s
     for last_arg, arg in zip(sys.argv[:-1], sys.argv[1:]):
-        if last_arg == "-H":
-            HERCULES_OUT_DIR = "./"
-            HERCULES_OUT_FNAMES = [arg]
-        elif last_arg == "-Ci":
-            CTH_IN_DIR = "./"
-            CTH_IN_FNAME = arg
-        elif last_arg == "-Cb":
-            CTH_IN_DIR = "./"
-            CTH_BASE_FNAME = arg
-        elif last_arg == "-pdt":
-            PDT_FLG = int(arg)
-        elif last_arg == "-dx":
-            DX = float(arg)
-        elif last_arg == "-dy":
-            DY = float(arg)
-        elif last_arg == "-v":
-            V_IMP = float(arg)
+        if last_arg == "-f":
+            # overwrite ioData with a new one from the HOTCI.json file
+            # (or whatever you choose to name your json file)
+            ioData = IO_Data(arg)
+        else:
+            try:
+                ioData.setattr(last_arg[1:], arg)
+            except:
+                if last_arg[0] == "-":
+                    print("Warning: no attribute named {} in IO_Data obj".format(last_arg[1:]))
 
     print("Running ...")
-    print("HERCULES_OUT_FNAMES = {}".format(HERCULES_OUT_FNAMES))
-    print("CTH_BASE_FNAME = {}".format(CTH_BASE_FNAME))
-    print("CTH_IN_FNAME = {}".format(CTH_IN_FNAME))
-    print("PDT_FLG = {}".format(PDT_FLG))
+    print("HERCULES_OUT_FNAMES = {}".format(ioData.HERCULES_out_Fnames))
+    print("CTH_BASE_FNAME = {}".format(ioData.CTH_base_Fname))
+    print("CTH_IN_FNAME = {}".format(ioData.CTH_in_Fname))
+    print("PDT_FLG = {}".format(ioData.pdt_flg))
 
-    assemblage = ""
-
-    # Get the HERCULES data
-    params1, planet1 = get_hercules_data(HERCULES_OUT_FNAMES[0])
-    print("omega_rot of planet 1: {}".format(planet1.omega_rot))
-    print("aspect ratio of planet 1: {}".format(planet1.aspect))
-    try:
-        params2, planet2 = get_hercules_data(HERCULES_OUT_FNAMES[1])
-        print("omega_rot of planet 2: {}".format(planet2.omega_rot))
-        print("aspect ratio of planet 2: {}".format(planet2.aspect))
-    except:
-        print("no planet 2")
+    
+    params = np.zeros(ioData.N_planets, dtype=object)
+    planets = np.zeros(ioData.N_planets, dtype=object)
+    planet_diatoms = np.zeros(ioData.N_planets, dtype=object)
+    mu_per_poly = np.zeros(ioData.N_planets)
+    for p_ind, hero_Fname in enumerate(ioData.HERCULES_out_Fnames):
+        # Get the HERCULES data
+        (params[p_ind], planets[p_ind]) = get_hercules_data(ioData.HERCULES_out_Fnames[0])
+        print("omega_rot of planet {}    : {} rads/s".format(p_ind,
+                                                             planets[p_ind].omega_rot))
+        print("aspect ratio of planet {} : {}".format(p_ind,
+                                                      planets[p_ind].aspect))
         
-    # extract the relavent data for DIATOM
-    diatom_data1 = get_diatom_data(params1, planet1, MATERIAL_FNAMES[0])    
-    mu_per_poly1 = 4*len(diatom_data1[0].xs)
-    print("Number of mu points per polygon in planet 1: "+str(mu_per_poly1))
-    # If the number of mu points is too high CTH will complain so the we
-    # de-resolve
-    if mu_per_poly1 > 2400:
-        print("Number of polygon vertices too high. Deresolving to {}".format(NUM_NEW_MU*4))
-        new_mu(diatom_data1, NUM_NEW_MU)
+        # extract the relavent data for DIATOM
+        planet_diatoms[p_ind] = get_planet_diatoms(params[p_ind],
+                                                   planets[p_ind],
+                                                   ioData.mat_Fnames[p_ind],
+                                                   ioData)
+        mu_per_poly[p_ind] = 4*len(planet_diatoms[p_ind][0].xs)
+        print("mu pnts per polygon {}    : {}".format(p_ind,
+                                                      mu_per_poly[p_ind]))
+        # If the number of mu points is too high
+        # CTH will complain so the we de-resolve
+        if mu_per_poly[p_ind] > 2400:
+            print("No. polygon vertices too high.")
+            print("new No. of mu pnts        : {}".format(ioData.N_new_mu*4))
+            new_mu(planet_diatoms[p_ind], ioData.N_new_mu)        
 
-    try:
-        diatom_data2 = get_diatom_data(params2, planet2, MATERIAL_FNAMES[1])
-        mu_per_poly2 = 4*len(diatom_data2[0].xs)
-        print("Number of mu points per polygon in planet 2: "+str(mu_per_poly2))
-        # If the number of mu points is too high CTH will complain so the we
-        # de-resolve
-        if mu_per_poly2 > 2400:
-            print("Number of polygon vertices too high. Deresolving to {}".format(NUM_NEW_MU*4))
-            new_mu(diatom_data2, NUM_NEW_MU)
-    except:
-        print("no planet 2")
-
-    try:
-        centers, velocities = coordTransf(planet1.Mtot, planet2.Mtot)
-    except NameError:
+    # count the number of bodies in the desired impact and transform
+    # the coordinate system accordingly
+    if len(planets) == 2:
+        centers, velocities = coordTransf(ioData,
+                                          planets[0].Mtot,
+                                          planets[1].Mtot)
+    elif len(planets) > 2:
+        exit("Behavior for more than 2 planets is not yet defined")
+    else:
         centers = [[0, 0, 0]]
         velocities = [[0, 0, 0]]
-        
+
     # write the DIATOM data to a text file in DIATOM syntax
-    assemblage += getAssemblage(diatom_data1,
-                                params1.run_name.decode("utf-8"),
-                                planet1.omega_rot/2.0/np.pi,
-                                PDT_FLG,
-                                centers[0],
-                                velocities[0],
-                                0)
-    try:
-        assemblage += getAssemblage(diatom_data2,
-                                    params2.run_name.decode("utf-8"),
-                                    planet2.omega_rot/2.0/np.pi,
-                                    PDT_FLG,
-                                    centers[1],
-                                    velocities[1],
-                                    1)
-    except:
-        print("no planet 2")
+    assemblage = ""
+    for p_ind, planet_diatom in enumerate(planet_diatoms):
+        assemblage += getAssemblage(planet_diatom,
+                                    params[p_ind].run_name.decode("utf-8"),
+                                    planets[p_ind].omega_rot/2.0/np.pi,
+                                    ioData,
+                                    centers[p_ind],
+                                    velocities[p_ind],
+                                    p_ind)
         
     # Replace the DIATOM block in the CTH input-deck
-    replace_diatom(assemblage)
+    replace_diatom(assemblage, ioData)

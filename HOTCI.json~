@@ -1,0 +1,28 @@
+{
+    "Verbose" : false,
+    "CTH_base_Fname" : "CTH_base/impact_master.in",
+    "CTH_in_Fname" : "../CTH_in/example.in",
+    "HERCULES_bodies" : [
+	{
+	    "HERCULES_out_Fname" : "../HERCULES_out/M1.05L1.35_L1.33357_N200_Nm800_k12_f021_p10000_l1_0_1.5_final",
+	    "mat_Fnames" : [
+		"../EOS_files/HERCULES_EOS_S3.03_Forsterite-ANEOS-SLVTv1.0G1.txt",
+		"../EOS_files/HERCULES_EOS_S1.81_Fe85Si15-ANEOS-SLVTv0.2G1.txt"
+	    ]
+	},
+	{
+	    "HERCULES_out_Fname" : "../HERCULES_out/M0.05L0_L0_N200_Nm800_k12_f021_p10000_l1_0_1.5_final",
+	    "mat_Fnames" : [
+		"../EOS_files/HERCULES_EOS_S3.03_Forsterite-ANEOS-SLVTv1.0G1.txt",
+		"../EOS_files/HERCULES_EOS_S1.8_Fe85Si15-ANEOS-SLVTv0.2G1.txt"
+	    ]
+	}
+    ],
+    "dx" : 1.19842e9,
+    "dy" : -3.3316e8,
+    "v_imp" : 2.00002e6,
+    "pdt_flg" : 2,
+    "i_sm" : 0,
+    "N_new_mu" : 600,
+    "indent" : " "
+}
